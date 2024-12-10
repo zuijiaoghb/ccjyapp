@@ -1,0 +1,28 @@
+<MudDialog>
+    <TitleContent>
+        查询方案
+    </TitleContent>
+    <DialogContent>
+	    <MudGrid>
+                <MudItem xs="12" lg="3">
+                    <MudTextField ShrinkLabel Label="序列号" HelperText="电机序列号" Class="mt-3" Required="true"  Variant="Variant.Outlined"
+                              @bind-Value="serialNumber" For="@(() =>serialNumber)" />
+                </MudItem>
+            </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">取消</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">确认</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private MudDialogInstance MudDialog { get; set; }
+
+    private string serialNumber;
+
+    private void Submit() => MudDialog.Close(DialogResult.Ok(true));  
+
+    private void Cancel() => MudDialog.Cancel();
+}

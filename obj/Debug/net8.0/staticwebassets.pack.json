@@ -1,0 +1,29 @@
+{
+  "Files": [
+    {
+      "Id": "/opt/aspnetcore/ccjyapp/wwwroot/favicon.ico",
+      "PackagePath": "staticwebassets/favicon.ico"
+    },
+    {
+      "Id": "/opt/aspnetcore/ccjyapp/wwwroot/printing.js",
+      "PackagePath": "staticwebassets/printing.js"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.build.ccjyapp.props",
+      "PackagePath": "build\\ccjyapp.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.ccjyapp.props",
+      "PackagePath": "buildMultiTargeting\\ccjyapp.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.ccjyapp.props",
+      "PackagePath": "buildTransitive\\ccjyapp.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.ccjyapp.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

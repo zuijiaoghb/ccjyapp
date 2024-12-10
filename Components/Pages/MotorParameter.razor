@@ -1,0 +1,611 @@
+﻿@page "/motorParameter"
+
+@implements IDisposable
+@inject ILogger<MotorParameterModel> Logger
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject IDialogService DialogService
+@inject IAuthorizationService AuthorizationService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
+
+@using System.ComponentModel.DataAnnotations
+@using ccjyapp.Data
+
+<PageTitle>电机参数</PageTitle>
+
+<MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined">
+    <MudButton StartIcon="@Icons.Material.Filled.AddCircleOutline" IconColor="Color.Primary" @onclick="addMotorParameterAsync" Disabled=adddisabled >新增</MudButton>
+    <MudButton StartIcon="@Icons.Material.Filled.Edit" IconColor="Color.Primary"  Disabled=modifydisabled @onclick="modifyMotorParameterBySerialNumberAndId">修改</MudButton>
+    <MudButton StartIcon="@Icons.Material.Filled.Delete" IconColor="Color.Primary"  Disabled=deletedisabled @onclick="deleteMotorParameterBySerialNumberAndId">删除</MudButton>        
+    <MudButton StartIcon="@Icons.Material.Filled.FindInPage" IconColor="Color.Primary" Disabled=finddisabled @onclick="OpenFindMotorParamterBySerialNumberDialog" >查询</MudButton>
+    <MudButton StartIcon="@Icons.Material.Filled.Print" IconColor="Color.Primary" @onclick="OpenPrintMotorParameterQRCoderDialog">打印二维码</MudButton>
+</MudButtonGroup>
+
+@*
+<div @ref="printMotorParameterQRCoderElement">
+    <!-- 需要打印的内容 -->
+    "要打印的内容"
+</div>
+
+<button @onclick="() => PrintContent(printMotorParameterQRCoderElement)">打印</button>
+*@
+
+<MudDialog @bind-Visible="_visible" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.FindInPage" Class="mr-3" /> 查询方案
+        </MudText>
+    </TitleContent>
+    <DialogContent>               
+        <MudGrid>
+            <MudItem xs="12" lg="3">
+                <MudTextField Label="序列号" HelperText="" Class="mt-3" Required="true"  Variant="Variant.Outlined"
+                              @bind-Value="serialNumber" For="@(() => serialNumber)" />
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">取消</MudButton>
+        <MudButton Color="Color.Primary" OnClick="FindMotorParameterBySerialNumberAsync">确认</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<MudDialog @bind-Visible="_printMotorParameterQRCodervisible" Options="_printMotorParameterQRCoderdialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.QrCode" Class="mr-3" /> 电机参数二维码
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" lg="3">
+                <div @ref="printMotorParameterQRCoderElement">
+                    <MudImage Src="@qrCodeImageAsBase64_src" Alt="" Elevation="25" Class="rounded-lg" Width="200" Height="200"/>
+                    @* <img src= "@qrCodeImageAsBase64_src" width="300" height="300"> *@                     
+                </div>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="printMotorParameterQRCoderCancel">取消</MudButton>
+        <MudButton Color="Color.Primary" OnClick="() => printMotorParameterQRCoderAsync(printMotorParameterQRCoderElement)">确认打印</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<MudGrid Justify="Justify.Center">
+    <MudItem xs="12" lg="3" >
+        <MudText Typo="Typo.h5" Align="Align.Center" >电机参数</MudText>
+    </MudItem>  
+</MudGrid>
+
+<EditForm Model="motorParameterModel" OnValidSubmit="OnValidSubmitAsync">
+<DataAnnotationsValidator/>
+<MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined">
+    <MudButton ButtonType="ButtonType.Submit" StartIcon="@Icons.Material.Filled.Save" IconColor="Color.Primary" Disabled=submitdisabled>保存</MudButton>
+    <MudButton StartIcon="@Icons.Material.Filled.Cancel" IconColor="Color.Primary" Disabled=cansledisabled @onclick="cansleSubmit">取消</MudButton>
+</MudButtonGroup>
+<MudGrid>
+    <MudItem xs="12" lg="3">
+        <MudSelect @bind-Value="motorParameterModel.Company" Label="所属单位" Variant="Variant.Outlined"  Required="true"  HelperText="选择所属单位" OpenIcon="@Icons.Material.Filled.House" AdornmentColor="Color.Secondary" ReadOnly=formdisabled >
+                     @foreach (MotorParameterCompany item in Enum.GetValues(typeof(MotorParameterCompany))) {
+                     <MudSelectItem Value="@item">@item</MudSelectItem>
+                }
+         </MudSelect>
+    </MudItem>
+    <MudItem xs="12" lg="3">
+        <MudTextField ShrinkLabel Label="中联编码" Class="mt-3" Variant="Variant.Outlined"  Required="true"
+                              @bind-Value="motorParameterModel.ZLCode" For="@(() => motorParameterModel.ZLCode)" ReadOnly=formdisabled />
+    </MudItem>
+    <MudItem xs="12" lg="3">
+        <MudTextField ShrinkLabel Label="序列号" HelperText="电机序列号" Class="mt-3" Required="true"  Variant="Variant.Outlined"
+                              @bind-Value="motorParameterModel.SerialNumber" For="@(() => motorParameterModel.SerialNumber)" ReadOnly=formdisabled />
+    </MudItem>
+    <MudItem xs="12" lg="3">
+        <MudNumericField @bind-Value="motorParameterModel.RatedPower" Label="额定功率" Variant="Variant.Outlined" Min="0.0" Required="true" ReadOnly=formdisabled />
+    </MudItem>
+    <MudItem xs="12" lg="3">		
+        <MudNumericField @bind-Value="motorParameterModel.RatedFrequency" Label="额定频率" Variant="Variant.Outlined" Min="0.0" Required="true" ReadOnly=formdisabled />					  
+    </MudItem>
+	<MudItem xs="12" lg="3">
+        <MudNumericField @bind-Value="motorParameterModel.RatedSpeed" Label="额定转速" Variant="Variant.Outlined" Min="0.0" Required="true" ReadOnly=formdisabled />					  
+    </MudItem>
+	<MudItem xs="12" lg="3">
+        <MudNumericField @bind-Value="motorParameterModel.RatedVoltage" Label="额定电压" Variant="Variant.Outlined" Min="0.0" Required="true" ReadOnly=formdisabled />					  
+    </MudItem>
+	<MudItem xs="12" lg="3">   
+        <MudNumericField @bind-Value="motorParameterModel.RatedCurrent" Label="额定电流" Variant="Variant.Outlined" Min="0.0" Required="true" ReadOnly=formdisabled />					  
+    </MudItem>
+	<MudItem xs="12" lg="3">  
+        <MudNumericField @bind-Value="motorParameterModel.StatorResistance" Label="定子电阻" Variant="Variant.Outlined" Min="0.0" Required="true" ReadOnly=formdisabled />					  
+    </MudItem>
+	<MudItem xs="12" lg="3">   
+        <MudNumericField @bind-Value="motorParameterModel.RotorResistance" Label="转子电阻" Variant="Variant.Outlined" Min="0.0" Required="true" ReadOnly=formdisabled />					  
+    </MudItem>
+	<MudItem xs="12" lg="3">  
+        <MudNumericField @bind-Value="motorParameterModel.LeakageReactance" Label="漏感抗" Variant="Variant.Outlined" Min="0.0" Required="true" ReadOnly=formdisabled />					  
+    </MudItem>
+	<MudItem xs="12" lg="3">   
+        <MudNumericField @bind-Value="motorParameterModel.MutualInductance" Label="互感抗" Variant="Variant.Outlined" Min="0.0" Required="true" ReadOnly=formdisabled />					  
+    </MudItem>
+	<MudItem xs="12" lg="3">
+        <MudNumericField @bind-Value="motorParameterModel.NoLoadCurrent" Label="空载电流" Variant="Variant.Outlined" Min="0.0" Required="true" ReadOnly=formdisabled />
+    </MudItem>      
+    <MudItem xs="12" lg="3">
+       <MudDatePicker ShrinkLabel Label="新建日期" Editable="true" @bind-Date="addtimedate" Placeholder="" Variant="Variant.Outlined" ReadOnly=foreverdisabled />       
+    </MudItem>
+    <MudItem xs="12" lg="3">       
+       <MudTimePicker ShrinkLabel Label="新建时间" AmPm="true" @bind-Time="addtimespan" Variant="Variant.Outlined" ReadOnly=foreverdisabled  />
+    </MudItem>
+    <MudItem xs="12" lg="3">
+       <MudDatePicker ShrinkLabel Label="修改日期" Editable="true" @bind-Date="modifytimedate" Placeholder="" Variant="Variant.Outlined" ReadOnly=foreverdisabled />       
+    </MudItem> 
+    <MudItem xs="12" lg="3">    
+       <MudTimePicker ShrinkLabel Label="修改时间" AmPm="true" @bind-Time="modifytimespan" Variant="Variant.Outlined" ReadOnly=foreverdisabled />
+    </MudItem>   
+</MudGrid>
+</EditForm>
+	
+@code {            
+    private MotorParameterModel motorParameterModel = new MotorParameterModel(DateTime.Now, DateTime.Now);         
+    private DateTime? addtimedate = DateTime.Today;
+    private DateTime? modifytimedate;
+    //private TimeSpan? addtimespan = new TimeSpan(motorParameterModel.AddTime.Hour, motorParameterModel.AddTime.Minute, motorParameterModel.AddTime.Second);
+    //private TimeSpan? modifytimespan = new TimeSpan(motorParameterModel.ModifyTime.Hour, motorParameterModel.ModifyTime.Minute, motorParameterModel.ModifyTime.Second);   
+    private TimeSpan? addtimespan = new TimeSpan(DateTime.Now.Hour, DateTime.Now.Minute, DateTime.Now.Second);
+    private TimeSpan? modifytimespan;
+
+    private ApplicationDbContext? Context { get; set; }
+    private bool Busy;
+
+    private int currentCount = 0;
+    private bool adddisabled = false;
+    private bool finddisabled = false;
+    private bool modifydisabled = true;
+    private bool deletedisabled = true;
+    private bool submitdisabled = true;
+    private bool cansledisabled = true;
+    private bool formdisabled = true;
+    private bool ismodifybutton = false;
+    private bool foreverdisabled = true;
+
+    private string motorParameterCompany;
+    string state = "Message box hasn't been opened yet";
+
+    private bool _visible;    
+    private readonly DialogOptions _dialogOptions = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true, BackdropClick = false };     
+    private string serialNumber;
+   
+    private string qrCodeImageAsBase64_src;
+    private bool _printMotorParameterQRCodervisible;
+    private readonly DialogOptions _printMotorParameterQRCoderdialogOptions = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = false, BackdropClick = false };
+ 
+    private ElementReference printMotorParameterQRCoderElement;	
+
+    private void OpenFindMotorParamterBySerialNumberDialog()
+    {      
+        _visible = true;
+    }
+
+   private void OpenPrintMotorParameterQRCoderDialog(){       
+        string qrCodeContent = "0001" +  FloatToHexConverter.FloatToHexString((float)motorParameterModel.RatedPower) + FloatToHexConverter.FloatToHexString((float)motorParameterModel.RatedFrequency) + FloatToHexConverter.FloatToHexString((float)motorParameterModel.RatedSpeed) + FloatToHexConverter.FloatToHexString((float)motorParameterModel.RatedVoltage) + FloatToHexConverter.FloatToHexString((float)motorParameterModel.RatedCurrent) + FloatToHexConverter.FloatToHexString((float)motorParameterModel.StatorResistance) + FloatToHexConverter.FloatToHexString((float)motorParameterModel.RotorResistance) + FloatToHexConverter.FloatToHexString((float)motorParameterModel.LeakageReactance) + FloatToHexConverter.FloatToHexString((float)motorParameterModel.MutualInductance) + FloatToHexConverter.FloatToHexString((float)motorParameterModel.NoLoadCurrent);        
+        Logger.LogInformation("qrCodeContent = {qrCodeContent}", qrCodeContent);
+        string qrCodeContentBASE64 = motorParameterModel.ZLCode + "&" +motorParameterModel.SerialNumber + "&" +  Base64EncodingUtil.EncodeHexStringToBase64(qrCodeContent).Replace("+", "-").Replace("/", "_");
+        Logger.LogInformation("qrCodeContentBASE64 = {qrCodeContentBASE64}", qrCodeContentBASE64);
+        
+        //Console.Write(b.ToString("X2") + " ");         
+        //Console.WriteLine("四字节十六进制表示:" + qrCodeContent);       
+
+        QRCodeGenerator qrGenerator = new QRCodeGenerator();       
+        QRCodeData qrCodeData = qrGenerator.CreateQrCode(qrCodeContentBASE64, QRCodeGenerator.ECCLevel.M);
+
+        var imgType = Base64QRCode.ImageType.Png;
+        Base64QRCode qrCode = new Base64QRCode(qrCodeData);
+        string qrCodeImageAsBase64 = qrCode.GetGraphic(20, "#000000", "#ffffff", true, imgType);
+        //Logger.LogInformation("qrCodeImageAsBase64 = {qrCodeImageAsBase64}", qrCodeImageAsBase64);
+        qrCodeImageAsBase64_src = "data:image/" + imgType.ToString().ToLower() + ";base64," + qrCodeImageAsBase64;
+        //Logger.LogInformation("qrCodeImageAsBase64_src = {qrCodeImageAsBase64_src}" , qrCodeImageAsBase64_src);
+ 	
+	_printMotorParameterQRCodervisible = true;
+   }
+
+    private async Task FindMotorParameterBySerialNumberAsync() { 
+        if (Busy) {
+            return;
+        }
+
+        Busy = true;
+        modifydisabled = true;
+        deletedisabled = true;
+
+           if (serialNumber is null) {
+				bool? result = await DialogService.ShowMessageBox(
+                   "警告",
+                   "查询前请输入序列号。",
+                   yesText:"确认", cancelText:"取消");
+                state = result == null ? "取消" : "确认";
+                StateHasChanged();
+				
+                modifydisabled = true;
+                deletedisabled = true;
+            } else {
+              try {
+              MotorParameterModel motorp =  Context.MotorParameters.Single(b => b.SerialNumber == serialNumber);
+              motorParameterModel.Id=motorp.Id;
+              motorParameterModel.Company=motorp.Company;
+              motorParameterModel.ZLCode=motorp.ZLCode;
+              motorParameterModel.SerialNumber=motorp.SerialNumber;
+              motorParameterModel.RatedPower=motorp.RatedPower;
+              motorParameterModel.RatedFrequency=motorp.RatedFrequency;
+              motorParameterModel.RatedSpeed=motorp.RatedSpeed;
+              motorParameterModel.RatedVoltage=motorp.RatedVoltage;
+              motorParameterModel.RatedCurrent=motorp.RatedCurrent;
+              motorParameterModel.StatorResistance=motorp.StatorResistance;
+              motorParameterModel.RotorResistance=motorp.RotorResistance;
+              motorParameterModel.LeakageReactance=motorp.LeakageReactance;
+              motorParameterModel.MutualInductance=motorp.MutualInductance;
+              motorParameterModel.NoLoadCurrent=motorp.NoLoadCurrent;
+              motorParameterModel.Selected=motorp.Selected;
+              motorParameterModel.OwnerID=motorp.OwnerID;
+              motorParameterModel.Status=motorp.Status;
+              motorParameterModel.AddTime=motorp.AddTime;
+              motorParameterModel.ModifyTime=motorp.ModifyTime;
+              addtimedate = motorp.AddTime.Date;
+              addtimespan = new TimeSpan(motorp.AddTime.Hour, motorp.AddTime.Minute, motorp.AddTime.Second); 
+              modifytimedate = motorp.ModifyTime?.Date;
+              modifytimespan = new TimeSpan(motorp.ModifyTime?.Hour?? default(int), motorp.ModifyTime?.Minute?? default(int), motorp.ModifyTime?.Second?? default(int) );            
+
+              //var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+              //var user = authState.User;
+              //var isAuthorized = await AuthorizationService.AuthorizeAsync(
+                                                        //user, recbill,
+                                                        //RecbillOperations.Read);
+              //if (!isAuthorized.Succeeded)
+              //{                
+                //recbill = new RecBillModel( DateTime.Now, DateTime.Now, DateTime.Now, DateTime.Now, DateTime.Now );
+                //var dialog = await DialogService.ShowErrorAsync("当前用户没有查询该数据的权限。" );
+                //var result = await dialog.Result;
+                //recbill = new RecBillModel(DateTime.Now, DateTime.Now, DateTime.Now, DateTime.Now, DateTime.Now);
+              //} else {
+                  modifydisabled = false;
+                  deletedisabled = false;
+              //}
+            } catch (System.InvalidOperationException e ) {
+                bool? result = await DialogService.ShowMessageBox(
+                   "错误",
+                   "该电机参数不存在。",
+                   yesText:"确认", cancelText:"取消");
+                state = result == null ? "取消" : "确认";
+                StateHasChanged();
+				
+              motorParameterModel = new MotorParameterModel(DateTime.Now, DateTime.Now);
+              modifydisabled = true;
+              deletedisabled = true;
+              Busy = false;
+             }
+          }
+
+                formdisabled = true;
+                submitdisabled = true;
+                cansledisabled = true;
+
+                Busy = false;	
+
+        _visible = false;       
+    }
+
+    private void Cancel() {
+         _visible = false;        
+    }
+
+    private void printMotorParameterQRCoderCancel() {
+         _printMotorParameterQRCodervisible = false;
+    }
+    
+    protected override async Task OnInitializedAsync()
+    {  
+	   Busy = true;
+
+	   Context = DbFactory.CreateDbContext();
+
+	   Busy = false;
+
+	   await base.OnInitializedAsync();
+	   // ... 其他初始化代码
+	   motorParameterCompany = "1";
+	   motorParameterModel.Company = MotorParameterCompany.江西江特;
+                              
+     }   
+
+     private  async Task  addMotorParameterAsync(){
+	//var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+	//var user = authState.User;
+
+	//recbill.OwnerID = UserManager.GetUserId(user);
+	//var isAuthorized = await AuthorizationService.AuthorizeAsync(
+	//												user, recbill,
+	//												RecbillOperations.Create);
+	//if (!isAuthorized.Succeeded)
+	//{		
+	   //var dialog = await DialogService.ShowErrorAsync("当前用户没有新建权限。" );
+	   //var result = await dialog.Result;
+	//} else {
+	formdisabled = false;
+	submitdisabled = false;
+	cansledisabled = false;
+	ismodifybutton = false;
+	modifydisabled = true;
+	deletedisabled = true;
+	finddisabled = true;
+	motorParameterModel = new MotorParameterModel(DateTime.Now, DateTime.Now);
+	motorParameterCompany = "1";
+	motorParameterModel.Company = MotorParameterCompany.江西江特;	
+     //}
+    } 
+
+    private  void cansleSubmit(){
+        if (ismodifybutton == false ) {
+        formdisabled = true;
+        submitdisabled = true;
+        cansledisabled = true;
+        modifydisabled = true;
+        deletedisabled = true;
+        finddisabled = false;
+        motorParameterModel = new MotorParameterModel(DateTime.Now, DateTime.Now);
+        }
+
+        if (ismodifybutton == true ) {
+        formdisabled = true;
+        submitdisabled = true;
+        cansledisabled = true;
+        modifydisabled = false;
+        deletedisabled = false;
+        finddisabled = false;
+        }
+    }
+
+    private async Task  modifyMotorParameterBySerialNumberAndId(){
+        //var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        //var user = authState.User;
+
+        //var isAuthorized = await AuthorizationService.AuthorizeAsync(
+                                                        //user, recbill,
+                                                        //RecbillOperations.Update);
+        //if (!isAuthorized.Succeeded)
+        //{           
+           //var dialog = await DialogService.ShowErrorAsync("当前用户没有修改权限。" );
+           //var result = await dialog.Result;
+        //} else {
+        formdisabled = false;
+        submitdisabled = false;
+        cansledisabled =false;
+        ismodifybutton = true;
+        modifydisabled = true;
+        deletedisabled = true;
+        finddisabled = true;
+        Busy = false;
+      //}
+    }
+
+   private async Task  deleteMotorParameterBySerialNumberAndId() {
+       //var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+       //var user = authState.User;
+
+       //var isAuthorized = await AuthorizationService.AuthorizeAsync(
+                                                        //user, recbill,
+                                                        //RecbillOperations.Delete);
+       //if (!isAuthorized.Succeeded)
+       //{              
+               //var dialog = await DialogService.ShowErrorAsync("当前用户没有删除该数据权限。" );
+               //var result = await dialog.Result;
+       //} else {
+
+       if (Busy) {
+            return;
+       }
+
+        Busy = true;      
+		
+		bool? result = await DialogService.ShowMessageBox(
+		   "警告",
+		   "确认删除吗?",
+		   yesText:"确认", cancelText:"取消");
+	   state = result == null ? "取消" : "确认";
+	   StateHasChanged();		
+
+        if (result == true) {
+            int count = 0 ;
+
+            try {
+                 var motorp = Context.MotorParameters.Single(b => b.SerialNumber == motorParameterModel.SerialNumber && b.Id==motorParameterModel.Id);
+                 Context.MotorParameters.Remove(motorp);
+                 count = Context.SaveChanges();
+            } catch (Microsoft.EntityFrameworkCore.DbUpdateException e ) {
+                bool? result2 = await DialogService.ShowMessageBox(
+		        "错误",
+		        "删除失败!该票据不存在。",
+		        yesText:"确认", cancelText:"取消");
+	            state = result == null ? "取消" : "确认";
+	            StateHasChanged();
+				
+                Busy = false;
+             }
+             if (count>0) {
+                bool? result2 = await DialogService.ShowMessageBox(
+		        "成功",
+		        "删除成功！",
+		        yesText:"确认", cancelText:"取消");
+	            state = result == null ? "取消" : "确认";
+	            StateHasChanged();
+				
+               submitdisabled = true;
+               cansledisabled = true;
+               modifydisabled = true;
+               deletedisabled = true;                
+			   motorParameterModel = new MotorParameterModel(DateTime.Now, DateTime.Now);
+
+               Busy = false;
+             }
+        }
+
+        if (result == false) {
+              submitdisabled = true;
+              cansledisabled = true;
+        }
+
+        Busy = false;
+     //}
+   }
+
+    private async Task OnValidSubmitAsync(EditContext context)
+    {
+        Logger.LogInformation("中联编码 = {ZLCode}", motorParameterModel?.ZLCode);
+
+        if (ismodifybutton == false) {
+            if (Busy) {
+                return;
+            }
+            Busy = true;
+
+            //var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            //var user = authState.User;
+
+            //recbill.OwnerID = UserManager.GetUserId(user);
+
+            //var isAuthorized = await AuthorizationService.AuthorizeAsync(
+                                                        //user, recbill,
+                                                        //RecbillOperations.Create);
+            //if (!isAuthorized.Succeeded)
+            //{               
+              //var dialog = await DialogService.ShowErrorAsync("当前用户没有新建权限。" );
+              //var result = await dialog.Result;
+            //} else {
+
+           int count = 0 ;
+
+           try {
+                 motorParameterModel.Status = MotorParameterStatus.Submitted;
+                 Context.MotorParameters.Add(motorParameterModel);
+                 count = Context.SaveChanges();            
+            } catch (Microsoft.EntityFrameworkCore.DbUpdateException e ) {	
+                bool? result = await DialogService.ShowMessageBox(
+                   "错误", 
+                   "保存失败!该电机参数已存在。", 
+                   yesText:"确认", cancelText:"取消");
+               state = result == null ? "Canceled" : "确认";
+               StateHasChanged();
+		                    
+                finddisabled = false;
+                modifydisabled = true;
+                deletedisabled = true;
+                submitdisabled = true;
+                cansledisabled = true;
+                formdisabled = true;
+                Busy = false;
+             }
+             if (count>0) {
+                bool? result = await DialogService.ShowMessageBox(
+                   "成功", 
+                   "保存成功！", 
+                   yesText:"确认", cancelText:"取消");
+               state = result == null ? "Canceled" : "确认";
+               StateHasChanged();
+				
+                finddisabled = false;
+                modifydisabled = true;
+                deletedisabled = true;
+                submitdisabled = true;
+                cansledisabled = true;
+                formdisabled = true;
+                motorParameterModel = new MotorParameterModel(DateTime.Now, DateTime.Now);
+                Busy = false;
+             }
+             //}
+
+             Busy = false;
+        }
+
+       if (ismodifybutton == true) {
+            if (Busy) {
+                  return;
+            }
+
+           Busy = true;
+           int count = 0 ;
+
+           try {
+                  //var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+                  //var user = authState.User;
+
+                  //var isAuthorized = await AuthorizationService.AuthorizeAsync(
+                                                        //user, recbill,
+                                                        //RecbillOperations.Update);
+                  //if (!isAuthorized.Succeeded)
+                  //{
+                   //var dialog = await DialogService.ShowErrorAsync("当前用户没有修改权限。" );
+                   //var result = await dialog.Result;
+                  //} else {
+                var motorp = Context.MotorParameters.Single(b => b.SerialNumber == motorParameterModel.SerialNumber && b.Id==motorParameterModel.Id);
+                motorp.Company = motorParameterModel.Company;
+                motorp.ZLCode = motorParameterModel.ZLCode;
+                motorp.SerialNumber = motorParameterModel.SerialNumber;
+                motorp.RatedPower = motorParameterModel.RatedPower;
+                motorp.RatedFrequency = motorParameterModel.RatedFrequency;
+                motorp.RatedSpeed = motorParameterModel.RatedSpeed;
+                motorp.RatedVoltage = motorParameterModel.RatedVoltage;
+                motorp.RatedCurrent = motorParameterModel.RatedCurrent;
+                motorp.StatorResistance = motorParameterModel.StatorResistance;
+                motorp.RotorResistance = motorParameterModel.RotorResistance;
+                motorp.LeakageReactance = motorParameterModel.LeakageReactance;
+                motorp.MutualInductance = motorParameterModel.MutualInductance;
+                motorp.NoLoadCurrent = motorParameterModel.NoLoadCurrent;
+                motorp.ModifyTime = DateTime.Now;
+				modifytimedate = DateTime.Now;
+				modifytimespan = new TimeSpan(DateTime.Now.Hour, DateTime.Now.Minute, DateTime.Now.Second);
+                count = Context.SaveChanges();
+               //}            
+            } catch (Microsoft.EntityFrameworkCore.DbUpdateException e ) {
+                 bool? result = await DialogService.ShowMessageBox(
+                   "错误", 
+                   "保存失败。", 
+                   yesText:"确认", cancelText:"取消");
+                state = result == null ? "Canceled" : "确认";
+                StateHasChanged();
+				
+                Busy = false;
+             }
+             if (count>0) {
+                bool? result = await DialogService.ShowMessageBox(
+                   "成功", 
+                   "保存成功！", 
+                   yesText:"确认", cancelText:"取消");
+               state = result == null ? "Canceled" : "确认";
+               StateHasChanged();
+				
+                submitdisabled = true;
+                cansledisabled = true;
+                modifydisabled = true;
+                deletedisabled = true;
+                finddisabled = false;
+                motorParameterModel = new MotorParameterModel(DateTime.Now, DateTime.Now);
+                Busy = false;
+             }
+
+          Busy = false;
+        }
+         Busy = false;
+     }	
+
+
+   private async Task printMotorParameterQRCoderAsync(ElementReference elementReference) {
+  	//var jsObjectRef = DotNetObjectReference.Create(this);
+        //await JSRuntime.InvokeVoidAsync("printContent", elementReference, jsObjectRef);
+   }   
+   
+
+    public void Dispose()
+    {
+       Context?.Dispose();
+    }
+
+}
